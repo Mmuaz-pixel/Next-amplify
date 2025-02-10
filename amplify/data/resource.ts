@@ -1,17 +1,84 @@
-import { type ClientSchema, a, defineData } from '@aws-amplify/backend';
+import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
 
-/*== STEP 1 ===============================================================
-The section below creates a Todo database table with a "content" field. Try
-adding a new "isDone" field as a boolean. The authorization rule below
-specifies that any unauthenticated user can "create", "read", "update", 
-and "delete" any "Todo" records.
-=========================================================================*/
-const schema = a.schema({
-  Todo: a
-    .model({
-      content: a.string(),
-    })
-    .authorization((allow) => [allow.guest()]),
+export const schema = a.schema({
+  User: a.model({
+    id: a.id(),
+    firstName:a.string(),
+    family_name:a.string(),
+    email: a.string().required(),
+    owner: a.string(),
+    offers: a.hasMany('Offer', 'creatorId'),
+    messages: a.hasMany('Message', 'senderId'),
+    createdAt: a.datetime(),
+    updatedAt: a.datetime(),
+  }).authorization((allow) => [
+    // Allow anyone to create a user (needed for signup)
+    allow.publicApiKey().to(['create']),
+
+    // Allow only the owner to read, update, and delete their own records
+    allow.owner().to(["read", "update", "delete"])
+  ]),
+
+  Recipient: a.model({
+    id: a.id(),
+    offerId: a.string().required(),
+    offer: a.belongsTo('Offer', 'offerId'), // Reference to the parent Offer
+    recip_first_name: a.string(),
+    recip_family_name: a.string(),
+    email: a.string(),
+    soMe_links: a.string().array(),
+  }).authorization((allow) =>
+    [allow.owner().to(["create", "read", "update", "delete"])]
+  ),
+
+  Offer: a.model({
+    id: a.id(),
+    creatorId: a.string().required(),
+    creator: a.belongsTo('User', 'creatorId'), // Parent user
+    recipient: a.hasOne('Recipient', 'offerId'), // One-to-One relationship with Recipient
+    recipientEmail: a.string(),
+    recipientName:a.string(),
+    recipientLinks: a.string().array(),
+    description: a.string().required(),
+    status: a.string().required(),
+    notifyRecipient: a.boolean().required(),
+    match1: a.hasOne('Match', 'offer1Id'), // First Match
+    match2: a.hasOne('Match', 'offer2Id'), // Second Match
+    createdAt: a.datetime(),
+    updatedAt: a.datetime(),
+  }).authorization(allow =>  
+[allow.owner().to(["create", "read", "update", "delete"]),
+  allow.groups(["matchParticipants"]).to(["read"]),
+]),
+
+  Match: a.model({
+    id: a.id(),
+    offer1Id: a.string().required(),
+    offer1: a.belongsTo('Offer', 'offer1Id'), // Linked to first Offer
+    offer2Id: a.string().required(),
+    offer2: a.belongsTo('Offer', 'offer2Id'), // Linked to second Offer
+    status: a.string().required(),
+    isPaid: a.boolean().required(),
+    messages: a.hasMany('Message', 'matchId'), // Messages in the match
+    createdAt: a.datetime(),
+    updatedAt: a.datetime(),
+  }).authorization((allow) => [
+    allow.owner().to(['read', 'delete']),
+  ]),
+
+  Message: a.model({
+    id: a.id(),
+    matchId: a.string().required(),
+    match: a.belongsTo('Match', 'matchId'),
+    senderId: a.string().required(),
+    sender: a.belongsTo('User', 'senderId'),
+    content: a.string().required(),
+    createdAt: a.datetime(),
+  }).authorization((allow) => [
+    allow.authenticated().to(["create"]),
+    allow.owner().to(["read", "delete"]),
+    allow.groups(["matchParticipants"]).to(["read"]),
+  ]),
 });
 
 export type Schema = ClientSchema<typeof schema>;
@@ -19,35 +86,10 @@ export type Schema = ClientSchema<typeof schema>;
 export const data = defineData({
   schema,
   authorizationModes: {
-    defaultAuthorizationMode: 'iam',
+    defaultAuthorizationMode: "apiKey",
+    apiKeyAuthorizationMode: {
+      expiresInDays: 30,
+    },
   },
 });
 
-/*== STEP 2 ===============================================================
-Go to your frontend source code. From your client-side code, generate a
-Data client to make CRUDL requests to your table. (THIS SNIPPET WILL ONLY
-WORK IN THE FRONTEND CODE FILE.)
-
-Using JavaScript or Next.js React Server Components, Middleware, Server 
-Actions or Pages Router? Review how to generate Data clients for those use
-cases: https://docs.amplify.aws/gen2/build-a-backend/data/connect-to-API/
-=========================================================================*/
-
-/*
-"use client"
-import { generateClient } from "aws-amplify/data";
-import type { Schema } from "@/amplify/data/resource";
-
-const client = generateClient<Schema>() // use this Data client for CRUDL requests
-*/
-
-/*== STEP 3 ===============================================================
-Fetch records from the database and use them in your frontend component.
-(THIS SNIPPET WILL ONLY WORK IN THE FRONTEND CODE FILE.)
-=========================================================================*/
-
-/* For example, in a React component, you can use this snippet in your
-  function's RETURN statement */
-// const { data: todos } = await client.models.Todo.list()
-
-// return <ul>{todos.map(todo => <li key={todo.id}>{todo.content}</li>)}</ul>
