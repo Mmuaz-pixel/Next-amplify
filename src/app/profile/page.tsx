@@ -1,61 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { generateClient } from "aws-amplify/data";
 import { Schema } from "@/../amplify/data/resource";
-import { fetchUserAttributes, getCurrentUser } from "aws-amplify/auth";
+import { useAuth } from "@/providers/UserProvider";
 
-const client = generateClient<Schema>();
+const client = generateClient<Schema>({
+  authMode: "userPool",
+});
 
 export default function Profile() {
-  const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState<any | null>(null);
+  const { user, loading, refetchUser } = useAuth(); 
+
   const [firstName, setFirstName] = useState("");
   const [familyName, setFamilyName] = useState("");
-  const [email, setEmail] = useState("");
 
+  // Set states only when user is populated
   useEffect(() => {
-    async function fetchUser() {
-      setLoading(true);
-      try {
-        const currentUser = await getCurrentUser();
-        const userAttributes = await fetchUserAttributes();
-        const email = userAttributes.email;
-
-        if (currentUser) {
-          // ✅ Check if user exists using email (not id)
-          const {data: userData} = await client.models.User.list({
-            filter: { email: { eq: email } },
-          });
-
-          console.log(userData); 
-
-          if (userData.length > 0) {
-            setUser(userData[0]);
-            setFirstName(userData[0].firstName || "");
-            setFamilyName(userData[0].family_name || "");
-            setEmail(email || "");
-          } else {
-            // ✅ Create user if not found
-            const newUser = await client.models.User.create({
-              email: email || '',
-              firstName: "",
-              family_name: "",
-              owner: currentUser.userId,
-            });
-            console.log(newUser)
-            setUser(newUser);
-            setEmail(email || "");
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching user:", error);
-      } finally {
-        setLoading(false);
-      }
+    if (user) {
+      console.log(user);
+      setFirstName(user.firstName || "");
+      setFamilyName(user.family_name || "");
     }
-    fetchUser();
-  }, []);
+  }, [user]);
 
   const handleUpdate = async () => {
     if (user) {
@@ -64,16 +31,17 @@ export default function Profile() {
         firstName,
         family_name: familyName,
       });
+      refetchUser(); 
       alert("Profile updated!");
     }
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading || !user) return <div>Loading...</div>;
 
   return (
     <div className="p-4 max-w-lg mx-auto">
       <h1 className="text-xl font-bold">Your Profile</h1>
-      <p>Email: {email}</p>
+      <p>Email: {user.email}</p>
 
       <div className="mt-4">
         <label className="block font-semibold">First Name:</label>

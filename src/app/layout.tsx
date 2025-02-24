@@ -1,10 +1,17 @@
+'use client';
+
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import Auth from '@/components/auth/Auth';
 import '@aws-amplify/ui-react/styles.css';
 import Navbar from '@/components/Navbar';
 import './globals.css';
-import { isAuthenticated } from '@/utils/amplify-utils';
+import { Amplify } from 'aws-amplify';
+import outputs from '@/../amplify_outputs.json';
+import { UserProvider } from '@/providers/UserProvider';
+import { usePathname } from 'next/navigation';
+
+Amplify.configure(outputs, { ssr: true });
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -16,27 +23,20 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-export const metadata: Metadata = {
-  title: 'MVP',
-  description: 'This is a mvp app',
-};
-
-export default async function RootLayout({
+export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-
-  const signedIn = await isAuthenticated();
-  console.log(signedIn);
+}: Readonly<{ children: React.ReactNode }>) {
+  
+  const pathname = usePathname(); // ✅ Correct way to get the pathname
+  const isExcluded = pathname === '/signin';
 
   return (
     <html lang='en'>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <Navbar isSignedIn={signedIn}></Navbar>
-        <Auth>{children}</Auth>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <Navbar isSignedIn={true} />
+        <Auth>
+          {!isExcluded ? <UserProvider>{children}</UserProvider> : children}
+        </Auth>
       </body>
     </html>
   );

@@ -14,7 +14,7 @@ const Navbar = ({ isSignedIn }: { isSignedIn: boolean }) => {
       const { payload } = data;
       if (payload.event === 'signedIn') {
         setSignedIn(true);
-        router.push('/profile');
+        router.push('/');
       } else if (payload.event === 'signedOut') {
         setSignedIn(false);
         router.push('/signin');

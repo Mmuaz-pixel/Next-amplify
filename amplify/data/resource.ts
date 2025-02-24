@@ -13,8 +13,7 @@ export const schema = a.schema({
     updatedAt: a.datetime(),
   }).authorization((allow) => [
     // Allow anyone to create a user (needed for signup)
-    allow.publicApiKey().to(['create']),
-
+    allow.authenticated().to(['create']),
     // Allow only the owner to read, update, and delete their own records
     allow.owner().to(["read", "update", "delete"])
   ]),
